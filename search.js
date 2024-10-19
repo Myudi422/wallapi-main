@@ -1,5 +1,5 @@
 const express = require('express');
-const { AnimeWallpaper, AnimeSource } = require("../dist");
+const { AnimeWallpaper, AnimeSource } = require("./dist");
 const app = express();
 const port = 3000;
 

@@ -1,0 +1,19 @@
+{
+    "version": 2,
+    "builds": [
+      {
+        "src": "search.js", 
+        "use": "@vercel/node",
+        "config": {
+          "includeFiles": ["src/**/*"]
+        }
+      }
+    ],
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "/search.js"
+      }
+    ]
+  }
+  
