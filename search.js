@@ -108,6 +108,65 @@ app.get('/latest', async (req, res) => {
     }
 });
 
+
+app.get('/detail', async (req, res) => {
+    const url = req.query.url;
+    if (!url) {
+        return res.status(400).json({ error: "URL parameter is required" });
+    }
+
+    // Header User-Agent
+    const headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G975F Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
+    };
+
+    try {
+        // Permintaan HTTP ke URL
+        const response = await axios.get(url, { headers });
+
+        if (response.status !== 200) {
+            return res.status(500).json({ error: "Failed to fetch data from the website" });
+        }
+
+        // Parsing HTML dengan Cheerio
+        const $ = cheerio.load(response.data);
+
+        // Ekstrak judul
+        const titleElement = $('h1 span');
+        const title = titleElement.length ? titleElement.text().trim() : null;
+
+        // Ekstrak link video wallpaper
+        const videoWallpaperElement = $('a[rel="nofollow"][target="_blank"]');
+        const videoWallpaper = videoWallpaperElement.length 
+            ? `https://motionbgs.com${videoWallpaperElement.attr('href')}` 
+            : null;
+
+        // Ekstrak link preview video
+        const previewElement = $('video source');
+        const previewVideo = previewElement.length 
+            ? `https://motionbgs.com${previewElement.attr('src')}` 
+            : null;
+
+        // Pastikan semua detail berhasil diekstrak
+        if (!title || !videoWallpaper || !previewVideo) {
+            return res.status(500).json({ error: "Failed to extract necessary details" });
+        }
+
+        // Kirim hasil sebagai JSON
+        res.json({
+            title,
+            video_wallpaper: videoWallpaper,
+            preview_video: previewVideo
+        });
+    } catch (error) {
+        console.error('Error:', error.message);
+        return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data dari website." });
+    }
+});
+
+
+
+
 /**
  * API Endpoint untuk mendapatkan gambar secara acak dari WallHaven
  * Contoh: http://localhost:3000/homepage
