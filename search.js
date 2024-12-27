@@ -53,15 +53,17 @@ app.get('/wallhaven', async (req, res) => {
 
 
 
+// Endpoint `/latest` untuk mendapatkan wallpaper terbaru
 @app.route('/latest', methods=['GET'])
 def latest():
     source = request.args.get('source')  # 'motionbg' atau 'mylivewallpaper'
-    page = request.args.get('page', '1')  # Default ke halaman 1
+    page = request.args.get('page', '1')  # Default ke halaman 1 jika tidak ada parameter page
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
     }
 
     if source == 'motionbg':
+        # URL untuk MotionBG
         base_url = "https://motionbgs.com/latest/page/"
         url = f"{base_url}{page}"
         response = requests.get(url, headers=headers)
@@ -71,10 +73,12 @@ def latest():
         soup = BeautifulSoup(response.content, 'html.parser')
         wallpapers = []
 
+        # Menemukan container wallpaper
         container = soup.select_one('div.wp-block-post-template')
         if not container:
             return jsonify({"error": "No wallpapers found on MotionBG"}), 404
 
+        # Mengekstrak data wallpaper
         for item in container.find_all('a', href=True):
             thumbnail = item.find('img')['src'] if item.find('img') else None
             title = item.find('h2').text.strip() if item.find('h2') else None
@@ -87,9 +91,14 @@ def latest():
                     "thumbnail": thumbnail
                 })
 
-        return jsonify({"source": "motionbg", "page": page, "wallpapers": wallpapers})
+        return jsonify({
+            "source": "motionbg",
+            "page": page,
+            "wallpapers": wallpapers
+        })
 
     elif source == 'mylivewallpaper':
+        # URL untuk MyLiveWallpaper
         base_url = "https://mylivewallpapers.com/"
         url = f"{base_url}page/{page}/"
         response = requests.get(url, headers=headers)
@@ -99,15 +108,18 @@ def latest():
         soup = BeautifulSoup(response.content, 'html.parser')
         wallpapers = []
 
+        # Menemukan container wallpaper
         container = soup.select_one('main > div:nth-of-type(3) > div:nth-of-type(1)')
         if not container:
             return jsonify({"error": "No wallpapers found on MyLiveWallpaper"}), 404
 
+        # Mengekstrak data wallpaper
         for item in container.find_all('a', href=True):
             link = item['href']
-            title = link.split('/')[-2]
+            title = link.split('/')[-2]  # Mengambil bagian terakhir dari URL sebagai judul
             thumbnail_style = item.get('style', '')
 
+            # Mengambil URL thumbnail dari atribut style
             thumbnail_start = thumbnail_style.find('url(') + 4
             thumbnail_end = thumbnail_style.find(')', thumbnail_start)
             thumbnail = thumbnail_style[thumbnail_start:thumbnail_end].strip()
@@ -119,70 +131,71 @@ def latest():
                     "thumbnail": thumbnail
                 })
 
-        return jsonify({"source": "mylivewallpaper", "page": page, "wallpapers": wallpapers})
+        return jsonify({
+            "source": "mylivewallpaper",
+            "page": page,
+            "wallpapers": wallpapers
+        })
 
     else:
         return jsonify({"error": "Invalid source parameter"}), 400
 
 
-@app.route('/detail', methods=['GET'])
-def detail():
-    url = request.args.get('url')
-    source = request.args.get('source')  # 'motionbg' atau 'mylivewallpaper'
 
-    if not url or not source:
-        return jsonify({"error": "URL and source parameters are required"}), 400
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+app.get('/detail', async (req, res) => {
+    const url = req.query.url;
+    if (!url) {
+        return res.status(400).json({ error: "URL parameter is required" });
     }
 
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        return jsonify({"error": f"Failed to fetch data from {source}"}), 500
+    // Header User-Agent
+    const headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G975F Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
+    };
 
-    soup = BeautifulSoup(response.content, 'html.parser')
+    try {
+        // Permintaan HTTP ke URL
+        const response = await axios.get(url, { headers });
 
-    if source == 'motionbg':
-        title_element = soup.select_one('h1 span')
-        title = title_element.text.strip() if title_element else None
+        if (response.status !== 200) {
+            return res.status(500).json({ error: "Failed to fetch data from the website" });
+        }
 
-        video_wallpaper_element = soup.select_one('a[rel="nofollow"][target="_blank"]')
-        video_wallpaper = f"https://motionbgs.com{video_wallpaper_element['href']}" if video_wallpaper_element else None
+        // Parsing HTML dengan Cheerio
+        const $ = cheerio.load(response.data);
 
-        preview_element = soup.select_one('video source')
-        preview_video = f"https://motionbgs.com{preview_element['src']}" if preview_element else None
+        // Ekstrak judul
+        const titleElement = $('h1 span');
+        const title = titleElement.length ? titleElement.text().trim() : null;
 
-    elif source == 'mylivewallpaper':
-        title_element = soup.select_one('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1')
-        title = title_element.text.strip() if title_element else None
+        // Ekstrak link video wallpaper
+        const videoWallpaperElement = $('a[rel="nofollow"][target="_blank"]');
+        const videoWallpaper = videoWallpaperElement.length 
+            ? `https://motionbgs.com${videoWallpaperElement.attr('href')}` 
+            : null;
 
-        mobile_section = soup.find('img', {'src': 'https://mylivewallpapers.com/wp-content/uploads/site-essentials/ico-mobile-blue.png'})
-        if mobile_section:
-            video_element = mobile_section.find_next('a', class_='wpdm-download-link')
-            video_wallpaper = video_element['data-downloadurl'] if video_element else None
-        else:
-            video_wallpaper = None
+        // Ekstrak link preview video
+        const previewElement = $('video source');
+        const previewVideo = previewElement.length 
+            ? `https://motionbgs.com${previewElement.attr('src')}` 
+            : null;
 
-        preview_element = soup.find('video')
-        if preview_element:
-            preview_video = preview_element.find('source')['src'] if preview_element.find('source') else None
-        else:
-            preview_video = None
+        // Pastikan semua detail berhasil diekstrak
+        if (!title || !videoWallpaper || !previewVideo) {
+            return res.status(500).json({ error: "Failed to extract necessary details" });
+        }
 
-    else:
-        return jsonify({"error": "Invalid source parameter"}), 400
-
-    if not title or not video_wallpaper or not preview_video:
-        return jsonify({"error": "Failed to extract necessary details"}), 500
-
-    return jsonify({
-        "source": source,
-        "title": title,
-        "video_wallpaper": video_wallpaper,
-        "preview_video": preview_video
-    })
-
+        // Kirim hasil sebagai JSON
+        res.json({
+            title,
+            video_wallpaper: videoWallpaper,
+            preview_video: previewVideo
+        });
+    } catch (error) {
+        console.error('Error:', error.message);
+        return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data dari website." });
+    }
+});
 
 
 
