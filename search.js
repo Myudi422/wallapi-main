@@ -53,6 +53,7 @@ app.get('/wallhaven', async (req, res) => {
 
 
 
+
 app.get('/latest', async (req, res) => {
     const source = req.query.source;  // 'motionbg' or 'mylivewallpaper'
     const page = req.query.page || '1';  // Default to page 1 if no page is specified
@@ -61,11 +62,11 @@ app.get('/latest', async (req, res) => {
     };
 
     if (source === 'motionbg') {
-        // Updated URL for MotionBG
-        const base_url = "https://motionbgs.com/mobile/";
-        const url = `${base_url}${page}/`;
+        const baseUrl = "https://motionbgs.com/mobile/";
+        const url = `${baseUrl}${page}/`;
 
         try {
+            // Send HTTP request to MotionBG URL
             const response = await axios.get(url, { headers });
 
             if (response.status !== 200) {
@@ -76,7 +77,10 @@ app.get('/latest', async (req, res) => {
             const $ = cheerio.load(response.data);
             const wallpapers = [];
 
-            // Get the container for the wallpapers
+            // Debugging: Log the HTML to inspect the page structure
+            console.log(response.data);  // This will help inspect the raw HTML response
+
+            // Get container for wallpapers (adjust selector if necessary)
             const container = $('div.tmb.mtmb');
             if (!container.length) {
                 return res.status(404).json({ error: "No wallpapers found on MotionBG" });
@@ -107,38 +111,53 @@ app.get('/latest', async (req, res) => {
             console.error('Error:', error.message);
             return res.status(500).json({ error: "There was an error fetching data from MotionBG." });
         }
-
     } else if (source === 'mylivewallpaper') {
-        // URL for MyLiveWallpaper
-        const base_url = "https://mylivewallpapers.com/";
-        const url = `${base_url}page/${page}/`;
+        const baseUrl = "https://mylivewallpapers.com/";
+        const url = `${baseUrl}page/${page}/`;
 
         try {
+            // Send HTTP request to MyLiveWallpaper URL
             const response = await axios.get(url, { headers });
+
+            if (response.status !== 200) {
+                return res.status(500).json({ error: "Failed to fetch data from MyLiveWallpaper" });
+            }
+
+            // Parse HTML with Cheerio
             const $ = cheerio.load(response.data);
             const wallpapers = [];
 
-            $('main > div:nth-of-type(3) > div:nth-of-type(1) a').each((index, element) => {
+            // Get container for wallpapers
+            const container = $('main > div:nth-of-type(3) > div:nth-of-type(1)');
+            if (!container.length) {
+                return res.status(404).json({ error: "No wallpapers found on MyLiveWallpaper" });
+            }
+
+            // Extract individual wallpaper items
+            container.find('a[href]').each((_, element) => {
+                const title = link.split('/')[link.split('/').length - 2];  // Taking the second-to-last part of the URL as the title
                 const link = $(element).attr('href');
-                const title = link.split('/').slice(-2, -1)[0];  // Extract title from URL
                 const thumbnailStyle = $(element).attr('style');
-                const thumbnailMatch = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/) : null;
-                const thumbnail = thumbnailMatch ? thumbnailMatch[1] : null;
+                const thumbnail = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/)[1] : null;
 
                 if (title && link && thumbnail) {
-                    wallpapers.push({ title, link, thumbnail });
+                    wallpapers.push({
+                        title,
+                        link,
+                        thumbnail
+                    });
                 }
             });
 
-            res.json({
+            return res.json({
                 source: 'mylivewallpaper',
                 page,
                 wallpapers
             });
         } catch (error) {
-            res.status(500).json({ error: 'Failed to fetch data from MyLiveWallpaper' });
+            console.error('Error:', error.message);
+            return res.status(500).json({ error: "There was an error fetching data from MyLiveWallpaper." });
         }
-
     } else {
         res.status(400).json({ error: 'Invalid source parameter' });
     }
