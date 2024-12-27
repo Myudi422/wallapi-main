@@ -53,93 +53,77 @@ app.get('/wallhaven', async (req, res) => {
 
 
 
-// Endpoint `/latest` untuk mendapatkan wallpaper terbaru
-@app.route('/latest', methods=['GET'])
-def latest():
-    source = request.args.get('source')  # 'motionbg' atau 'mylivewallpaper'
-    page = request.args.get('page', '1')  # Default ke halaman 1 jika tidak ada parameter page
-    headers = {
+app.get('/latest', async (req, res) => {
+    const source = req.query.source;  // 'motionbg' or 'mylivewallpaper'
+    const page = req.query.page || '1';  // Default to page 1 if no page is specified
+    const headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+    };
+
+    if (source === 'motionbg') {
+        // URL for MotionBG
+        const base_url = "https://motionbgs.com/latest/page/";
+        const url = `${base_url}${page}`;
+
+        try {
+            const response = await axios.get(url, { headers });
+            const $ = cheerio.load(response.data);
+            const wallpapers = [];
+
+            $('div.wp-block-post-template a').each((index, element) => {
+                const thumbnail = $(element).find('img').attr('src');
+                const title = $(element).find('h2').text().trim();
+                const link = $(element).attr('href');
+
+                if (title && link && thumbnail) {
+                    wallpapers.push({ title, link, thumbnail });
+                }
+            });
+
+            res.json({
+                source: 'motionbg',
+                page,
+                wallpapers
+            });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch data from MotionBG' });
+        }
+
+    } else if (source === 'mylivewallpaper') {
+        // URL for MyLiveWallpaper
+        const base_url = "https://mylivewallpapers.com/";
+        const url = `${base_url}page/${page}/`;
+
+        try {
+            const response = await axios.get(url, { headers });
+            const $ = cheerio.load(response.data);
+            const wallpapers = [];
+
+            $('main > div:nth-of-type(3) > div:nth-of-type(1) a').each((index, element) => {
+                const link = $(element).attr('href');
+                const title = link.split('/').slice(-2, -1)[0];  // Extract title from URL
+                const thumbnailStyle = $(element).attr('style');
+                const thumbnailMatch = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/) : null;
+                const thumbnail = thumbnailMatch ? thumbnailMatch[1] : null;
+
+                if (title && link && thumbnail) {
+                    wallpapers.push({ title, link, thumbnail });
+                }
+            });
+
+            res.json({
+                source: 'mylivewallpaper',
+                page,
+                wallpapers
+            });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to fetch data from MyLiveWallpaper' });
+        }
+
+    } else {
+        res.status(400).json({ error: 'Invalid source parameter' });
     }
-
-    if source == 'motionbg':
-        # URL untuk MotionBG
-        base_url = "https://motionbgs.com/latest/page/"
-        url = f"{base_url}{page}"
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to fetch data from MotionBG"}), 500
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-        wallpapers = []
-
-        # Menemukan container wallpaper
-        container = soup.select_one('div.wp-block-post-template')
-        if not container:
-            return jsonify({"error": "No wallpapers found on MotionBG"}), 404
-
-        # Mengekstrak data wallpaper
-        for item in container.find_all('a', href=True):
-            thumbnail = item.find('img')['src'] if item.find('img') else None
-            title = item.find('h2').text.strip() if item.find('h2') else None
-            link = item['href']
-
-            if title and link and thumbnail:
-                wallpapers.append({
-                    "title": title,
-                    "link": link,
-                    "thumbnail": thumbnail
-                })
-
-        return jsonify({
-            "source": "motionbg",
-            "page": page,
-            "wallpapers": wallpapers
-        })
-
-    elif source == 'mylivewallpaper':
-        # URL untuk MyLiveWallpaper
-        base_url = "https://mylivewallpapers.com/"
-        url = f"{base_url}page/{page}/"
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            return jsonify({"error": "Failed to fetch data from MyLiveWallpaper"}), 500
-
-        soup = BeautifulSoup(response.content, 'html.parser')
-        wallpapers = []
-
-        # Menemukan container wallpaper
-        container = soup.select_one('main > div:nth-of-type(3) > div:nth-of-type(1)')
-        if not container:
-            return jsonify({"error": "No wallpapers found on MyLiveWallpaper"}), 404
-
-        # Mengekstrak data wallpaper
-        for item in container.find_all('a', href=True):
-            link = item['href']
-            title = link.split('/')[-2]  # Mengambil bagian terakhir dari URL sebagai judul
-            thumbnail_style = item.get('style', '')
-
-            # Mengambil URL thumbnail dari atribut style
-            thumbnail_start = thumbnail_style.find('url(') + 4
-            thumbnail_end = thumbnail_style.find(')', thumbnail_start)
-            thumbnail = thumbnail_style[thumbnail_start:thumbnail_end].strip()
-
-            if title and link and thumbnail:
-                wallpapers.append({
-                    "title": title,
-                    "link": link,
-                    "thumbnail": thumbnail
-                })
-
-        return jsonify({
-            "source": "mylivewallpaper",
-            "page": page,
-            "wallpapers": wallpapers
-        })
-
-    else:
-        return jsonify({"error": "Invalid source parameter"}), 400
-
+});
 
 
 app.get('/detail', async (req, res) => {
