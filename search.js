@@ -52,6 +52,106 @@ app.get('/wallhaven', async (req, res) => {
 });
 
 
+app.get('/random', async (req, res) => {
+    const sources = ['motionbg', 'mylivewallpaper'];
+    const randomSource = sources[Math.floor(Math.random() * sources.length)]; // Pilih sumber secara acak
+    const randomPage = Math.floor(Math.random() * 10) + 1; // Pilih halaman acak (1-10)
+    const headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    };
+
+    if (randomSource === 'motionbg') {
+        const baseUrl = "https://motionbgs.com/mobile/";
+        const url = `${baseUrl}${randomPage}/`;
+
+        try {
+            const response = await axios.get(url, { headers });
+
+            if (response.status !== 200) {
+                return res.status(500).json({ error: "Gagal mengambil data dari MotionBG" });
+            }
+
+            const $ = cheerio.load(response.data);
+            const wallpapers = [];
+            const container = $('div.tmb.mtmb');
+
+            if (!container.length) {
+                return res.status(404).json({ error: "Tidak ditemukan wallpaper di MotionBG" });
+            }
+
+            container.find('a[href]').each((_, element) => {
+                const title = $(element).attr('title');
+                const link = `https://motionbgs.com${$(element).attr('href')}`;
+                const thumbnailTag = $(element).find('img');
+                const thumbnail = thumbnailTag.length ? `https://motionbgs.com${thumbnailTag.attr('src')}` : null;
+
+                if (title && link && thumbnail) {
+                    wallpapers.push({
+                        title,
+                        link,
+                        thumbnail,
+                        type: 'live'
+                    });
+                }
+            });
+
+            return res.json({
+                source: 'motionbg',
+                page: randomPage,
+                wallpapers
+            });
+        } catch (error) {
+            console.error('Error:', error.message);
+            return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data dari MotionBG." });
+        }
+    } else if (randomSource === 'mylivewallpaper') {
+        const baseUrl = "https://mylivewallpapers.com/";
+        const url = `${baseUrl}page/${randomPage}/`;
+
+        try {
+            const response = await axios.get(url, { headers });
+
+            if (response.status !== 200) {
+                return res.status(500).json({ error: "Gagal mengambil data dari MyLiveWallpaper" });
+            }
+
+            const $ = cheerio.load(response.data);
+            const wallpapers = [];
+            const container = $('main > div:nth-of-type(3) > div:nth-of-type(1)');
+
+            if (!container.length) {
+                return res.status(404).json({ error: "Tidak ditemukan wallpaper di MyLiveWallpaper" });
+            }
+
+            container.find('a[href]').each((_, element) => {
+                const link = $(element).attr('href');
+                const title = link.split('/')[link.split('/').length - 2];
+                const thumbnailStyle = $(element).attr('style');
+                const thumbnail = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/)[1] : null;
+
+                if (title && link && thumbnail) {
+                    wallpapers.push({
+                        title,
+                        link,
+                        thumbnail,
+                        type: 'live'
+                    });
+                }
+            });
+
+            return res.json({
+                source: 'mylivewallpaper',
+                page: randomPage,
+                wallpapers
+            });
+        } catch (error) {
+            console.error('Error:', error.message);
+            return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data dari MyLiveWallpaper." });
+        }
+    } else {
+        res.status(400).json({ error: 'Sumber tidak valid' });
+    }
+});
 
 
 app.get('/latest', async (req, res) => {
