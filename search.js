@@ -164,56 +164,63 @@ app.get('/latest', async (req, res) => {
 
 app.get('/detail', async (req, res) => {
     const url = req.query.url;
-    if (!url) {
-        return res.status(400).json({ error: "URL parameter is required" });
+    const source = req.query.source; // 'motionbg' atau 'mylivewallpaper'
+
+    if (!url || !source) {
+        return res.status(400).json({ error: "URL dan source parameter diperlukan" });
     }
 
-    // Header User-Agent
     const headers = {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G975F Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
     };
 
     try {
-        // Permintaan HTTP ke URL
         const response = await axios.get(url, { headers });
 
         if (response.status !== 200) {
-            return res.status(500).json({ error: "Failed to fetch data from the website" });
+            return res.status(500).json({ error: "Gagal mengambil data dari website" });
         }
 
-        // Parsing HTML dengan Cheerio
         const $ = cheerio.load(response.data);
+        let title, videoWallpaper, previewVideo;
 
-        // Ekstrak judul
-        const titleElement = $('h1 span');
-        const title = titleElement.length ? titleElement.text().trim() : null;
-
-        // Ekstrak link video wallpaper
-        const videoWallpaperElement = $('a[rel="nofollow"][target="_blank"]');
-        const videoWallpaper = videoWallpaperElement.length 
-            ? `https://motionbgs.com${videoWallpaperElement.attr('href')}` 
-            : null;
-
-        // Ekstrak link preview video
-        const previewElement = $('video source');
-        const previewVideo = previewElement.length 
-            ? `https://motionbgs.com${previewElement.attr('src')}` 
-            : null;
-
-        // Pastikan semua detail berhasil diekstrak
-        if (!title || !videoWallpaper || !previewVideo) {
-            return res.status(500).json({ error: "Failed to extract necessary details" });
+        if (source === 'motionbg') {
+            // Untuk motionbg
+            title = $('h1 span').text().trim();
+            const videoWallpaperElement = $('a[rel="nofollow"][target="_blank"]');
+            videoWallpaper = videoWallpaperElement.length ? `https://motionbgs.com${videoWallpaperElement.attr('href')}` : null;
+            const previewElement = $('video source');
+            previewVideo = previewElement.length ? `https://motionbgs.com${previewElement.attr('src')}` : null;
+        } else if (source === 'mylivewallpaper') {
+            // Untuk mylivewallpaper
+            title = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1').text().trim();
+            const mobileSection = $('img[src="https://mylivewallpapers.com/wp-content/uploads/site-essentials/ico-mobile-blue.png"]');
+            if (mobileSection.length) {
+                const videoElement = mobileSection.next('a.wpdm-download-link');
+                videoWallpaper = videoElement.length ? videoElement.attr('data-downloadurl') : null;
+            } else {
+                videoWallpaper = null;
+            }
+            const previewElement = $('video source');
+            previewVideo = previewElement.length ? previewElement.attr('src') : null;
+        } else {
+            return res.status(400).json({ error: "Sumber tidak valid, pilih antara 'motionbg' atau 'mylivewallpaper'" });
         }
 
-        // Kirim hasil sebagai JSON
-        res.json({
+        // Pastikan semua data penting telah berhasil diambil
+        if (!title || !videoWallpaper || !previewVideo) {
+            return res.status(500).json({ error: "Gagal mengambil detail yang diperlukan" });
+        }
+
+        return res.json({
             title,
             video_wallpaper: videoWallpaper,
             preview_video: previewVideo
         });
+
     } catch (error) {
         console.error('Error:', error.message);
-        return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data dari website." });
+        return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data" });
     }
 });
 
