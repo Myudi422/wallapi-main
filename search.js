@@ -94,7 +94,8 @@ app.get('/latest', async (req, res) => {
                     wallpapers.push({
                         title,
                         link,
-                        thumbnail
+                        thumbnail,
+                        type: 'live'
                     });
                 }
             });
@@ -141,7 +142,8 @@ app.get('/latest', async (req, res) => {
                     wallpapers.push({
                         title,
                         link,
-                        thumbnail
+                        thumbnail,
+                        type: 'live'
                     });
                 }
             });
@@ -159,6 +161,7 @@ app.get('/latest', async (req, res) => {
         res.status(400).json({ error: 'Parameter sumber tidak valid' });
     }
 });
+
 
 
 
@@ -243,10 +246,10 @@ app.get('/detail', async (req, res) => {
         // Deteksi sumber berdasarkan URL
         if (url.includes('motionbgs.com')) {
             data = await getMotionBGDetails(url);
-        } else if (url.includes('mylivewallpaper.com')) {
+        } else if (url.includes('mylivewallpaper.com') || url.includes('mylivewallpapers.com')) {
             data = await getMyLiveWallpaperDetails(url);
         } else {
-            return res.status(400).json({ error: "URL tidak valid, pastikan berasal dari 'motionbgs.com' atau 'mylivewallpaper.com'" });
+            return res.status(400).json({ error: "URL tidak valid, pastikan berasal dari 'motionbgs.com' atau 'mylivewallpaper(s).com'" });
         }
 
         return res.json(data);
@@ -256,6 +259,7 @@ app.get('/detail', async (req, res) => {
         return res.status(500).json({ error: error.message });
     }
 });
+
 
 
 
