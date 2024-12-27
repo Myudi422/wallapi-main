@@ -1,4 +1,7 @@
 const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+const cheerio = require('cheerio');
 const { AnimeWallpaper, AnimeSource } = require("./dist"); // Sesuaikan path ini sesuai dengan lokasi anime-wallpaper.js atau library yang digunakan
 const app = express();
 const port = 3000;
