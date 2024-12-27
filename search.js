@@ -229,25 +229,24 @@ async function getMyLiveWallpaperDetails(url) {
     };
 }
 
-// Endpoint /detail untuk menangani dua sumber
+// Endpoint /detail untuk menangani dua sumber tanpa parameter source
 app.get('/detail', async (req, res) => {
     const url = req.query.url;
-    const source = req.query.source;
 
-    if (!url || !source) {
-        return res.status(400).json({ error: "URL dan source parameter diperlukan" });
+    if (!url) {
+        return res.status(400).json({ error: "Parameter URL diperlukan" });
     }
 
     try {
         let data;
 
-        // Pilih fungsi berdasarkan sumber
-        if (source === 'motionbg') {
+        // Deteksi sumber berdasarkan URL
+        if (url.includes('motionbgs.com')) {
             data = await getMotionBGDetails(url);
-        } else if (source === 'mylivewallpaper') {
+        } else if (url.includes('mylivewallpaper.com')) {
             data = await getMyLiveWallpaperDetails(url);
         } else {
-            return res.status(400).json({ error: "Sumber tidak valid, pilih antara 'motionbg' atau 'mylivewallpaper'" });
+            return res.status(400).json({ error: "URL tidak valid, pastikan berasal dari 'motionbgs.com' atau 'mylivewallpaper.com'" });
         }
 
         return res.json(data);
