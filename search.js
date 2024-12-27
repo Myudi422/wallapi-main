@@ -55,8 +55,8 @@ app.get('/wallhaven', async (req, res) => {
 
 
 app.get('/latest', async (req, res) => {
-    const source = req.query.source;  // 'motionbg' or 'mylivewallpaper'
-    const page = req.query.page || '1';  // Default to page 1 if no page is specified
+    const source = req.query.source;  // 'motionbg' atau 'mylivewallpaper'
+    const page = req.query.page || '1';  // Default halaman 1 jika tidak ada parameter
     const headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     };
@@ -66,27 +66,24 @@ app.get('/latest', async (req, res) => {
         const url = `${baseUrl}${page}/`;
 
         try {
-            // Send HTTP request to MotionBG URL
+            // Kirim permintaan HTTP ke URL MotionBG
             const response = await axios.get(url, { headers });
 
             if (response.status !== 200) {
-                return res.status(500).json({ error: "Failed to fetch data from MotionBG" });
+                return res.status(500).json({ error: "Gagal mengambil data dari MotionBG" });
             }
 
-            // Parse HTML with Cheerio
+            // Parsing HTML dengan Cheerio
             const $ = cheerio.load(response.data);
             const wallpapers = [];
 
-            // Debugging: Log the HTML to inspect the page structure
-            console.log(response.data);  // This will help inspect the raw HTML response
-
-            // Get container for wallpapers (adjust selector if necessary)
+            // Ambil container untuk wallpaper (sesuaikan selector jika perlu)
             const container = $('div.tmb.mtmb');
             if (!container.length) {
-                return res.status(404).json({ error: "No wallpapers found on MotionBG" });
+                return res.status(404).json({ error: "Tidak ditemukan wallpaper di MotionBG" });
             }
 
-            // Extract individual wallpaper items
+            // Ekstrak item wallpaper
             container.find('a[href]').each((_, element) => {
                 const title = $(element).attr('title');
                 const link = `https://motionbgs.com${$(element).attr('href')}`;
@@ -109,34 +106,34 @@ app.get('/latest', async (req, res) => {
             });
         } catch (error) {
             console.error('Error:', error.message);
-            return res.status(500).json({ error: "There was an error fetching data from MotionBG." });
+            return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data dari MotionBG." });
         }
     } else if (source === 'mylivewallpaper') {
         const baseUrl = "https://mylivewallpapers.com/";
         const url = `${baseUrl}page/${page}/`;
 
         try {
-            // Send HTTP request to MyLiveWallpaper URL
+            // Kirim permintaan HTTP ke URL MyLiveWallpaper
             const response = await axios.get(url, { headers });
 
             if (response.status !== 200) {
-                return res.status(500).json({ error: "Failed to fetch data from MyLiveWallpaper" });
+                return res.status(500).json({ error: "Gagal mengambil data dari MyLiveWallpaper" });
             }
 
-            // Parse HTML with Cheerio
+            // Parsing HTML dengan Cheerio
             const $ = cheerio.load(response.data);
             const wallpapers = [];
 
-            // Get container for wallpapers
+            // Ambil container untuk wallpaper
             const container = $('main > div:nth-of-type(3) > div:nth-of-type(1)');
             if (!container.length) {
-                return res.status(404).json({ error: "No wallpapers found on MyLiveWallpaper" });
+                return res.status(404).json({ error: "Tidak ditemukan wallpaper di MyLiveWallpaper" });
             }
 
-            // Extract individual wallpaper items
+            // Ekstrak item wallpaper
             container.find('a[href]').each((_, element) => {
-                const title = link.split('/')[link.split('/').length - 2];  // Taking the second-to-last part of the URL as the title
                 const link = $(element).attr('href');
+                const title = link.split('/')[link.split('/').length - 2];  // Ambil title dari URL
                 const thumbnailStyle = $(element).attr('style');
                 const thumbnail = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/)[1] : null;
 
@@ -156,12 +153,13 @@ app.get('/latest', async (req, res) => {
             });
         } catch (error) {
             console.error('Error:', error.message);
-            return res.status(500).json({ error: "There was an error fetching data from MyLiveWallpaper." });
+            return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data dari MyLiveWallpaper." });
         }
     } else {
-        res.status(400).json({ error: 'Invalid source parameter' });
+        res.status(400).json({ error: 'Parameter sumber tidak valid' });
     }
 });
+
 
 
 app.get('/detail', async (req, res) => {
