@@ -162,7 +162,6 @@ app.get('/latest', async (req, res) => {
 
 
 
-// Fungsi untuk mengambil detail dari MotionBG
 async function getMotionBGDetails(url) {
     const headers = {
         "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G975F Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
@@ -210,14 +209,12 @@ async function getMyLiveWallpaperDetails(url) {
 
     // Extract title
     const title = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1').text().trim();
-    // Extract video wallpaper link from mobile section
-    const mobileSection = $('img[src="https://mylivewallpapers.com/wp-content/uploads/site-essentials/ico-mobile-blue.png"]');
-    let videoWallpaper = null;
-    if (mobileSection.length) {
-        const videoElement = mobileSection.next('a.wpdm-download-link');
-        videoWallpaper = videoElement.length ? videoElement.attr('data-downloadurl') : null;
-    }
-    // Extract preview video link (video tag for preview)
+    
+    // Extract video wallpaper link
+    const downloadButton = $('a.wpdm-download-link[data-downloadurl]');
+    const videoWallpaper = downloadButton.length ? downloadButton.attr('data-downloadurl') : null;
+
+    // Extract preview video link
     const previewElement = $('video source');
     const previewVideo = previewElement.length ? previewElement.attr('src') : null;
 
