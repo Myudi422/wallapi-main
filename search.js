@@ -52,6 +52,62 @@ app.get('/wallhaven', async (req, res) => {
 });
 
 
+app.get('/kategori', async (req, res) => {
+    const base_url = "https://mylivewallpapers.com/category/";
+    const category = req.query.category || "anime"; // Default to 'anime' if no category is specified
+    const page = req.query.page || "1"; // Default to page 1 if no page is specified
+    const url = `${base_url}${category}/page/${page}/`;
+
+    const headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+    };
+
+    try {
+        const response = await axios.get(url, { headers });
+        const html = response.data;
+        const $ = cheerio.load(html);
+
+        const wallpapers = [];
+
+        // Get the container with wallpapers
+        const container = $('main > div:nth-of-type(3) > div:nth-of-type(1)');
+        if (!container.length) {
+            return res.status(404).json({ error: "No wallpapers found on the page" });
+        }
+
+        // Extract individual wallpaper items
+        container.find('a[href]').each((index, element) => {
+            const link = $(element).attr('href');
+            const title = link.split('/').slice(-2, -1)[0]; // Extract the second-to-last part of the path as title
+            const thumbnailStyle = $(element).attr('style') || "";
+
+            // Extract thumbnail URL from style attribute
+            const thumbnailStart = thumbnailStyle.indexOf('url(') + 4;
+            const thumbnailEnd = thumbnailStyle.indexOf(')', thumbnailStart);
+            const thumbnail = thumbnailStyle.substring(thumbnailStart, thumbnailEnd).trim();
+
+            if (title && link && thumbnail) {
+                wallpapers.push({
+                    title,
+                    link,
+                    thumbnail
+                });
+            }
+        });
+
+        return res.json({
+            category,
+            page,
+            wallpapers
+        });
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        return res.status(500).json({ error: "Failed to fetch data from the website" });
+    }
+});
+
+
+
 app.get('/random', async (req, res) => {
     const sources = ['motionbg', 'mylivewallpaper'];
     const randomSource = sources[Math.floor(Math.random() * sources.length)]; // Pilih sumber secara acak
@@ -107,28 +163,33 @@ app.get('/random', async (req, res) => {
     } else if (randomSource === 'mylivewallpaper') {
         const baseUrl = "https://mylivewallpapers.com/";
         const url = `${baseUrl}page/${randomPage}/`;
-
+    
         try {
             const response = await axios.get(url, { headers });
-
+    
             if (response.status !== 200) {
                 return res.status(500).json({ error: "Gagal mengambil data dari MyLiveWallpaper" });
             }
-
+    
             const $ = cheerio.load(response.data);
             const wallpapers = [];
             const container = $('main > div:nth-of-type(3) > div:nth-of-type(1)');
-
+    
             if (!container.length) {
                 return res.status(404).json({ error: "Tidak ditemukan wallpaper di MyLiveWallpaper" });
             }
-
+    
             container.find('a[href]').each((_, element) => {
                 const link = $(element).attr('href');
                 const title = link.split('/')[link.split('/').length - 2];
                 const thumbnailStyle = $(element).attr('style');
-                const thumbnail = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/)[1] : null;
-
+                let thumbnail = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/)[1] : null;
+    
+                // Trim spasi di thumbnail URL jika ada
+                if (thumbnail) {
+                    thumbnail = thumbnail.trim();
+                }
+    
                 if (title && link && thumbnail) {
                     wallpapers.push({
                         title,
@@ -138,7 +199,7 @@ app.get('/random', async (req, res) => {
                     });
                 }
             });
-
+    
             return res.json({
                 source: 'mylivewallpaper',
                 page: randomPage,
@@ -151,6 +212,7 @@ app.get('/random', async (req, res) => {
     } else {
         res.status(400).json({ error: 'Sumber tidak valid' });
     }
+    
 });
 
 
@@ -212,32 +274,37 @@ app.get('/latest', async (req, res) => {
     } else if (source === 'mylivewallpaper') {
         const baseUrl = "https://mylivewallpapers.com/";
         const url = `${baseUrl}page/${page}/`;
-
+    
         try {
             // Kirim permintaan HTTP ke URL MyLiveWallpaper
             const response = await axios.get(url, { headers });
-
+    
             if (response.status !== 200) {
                 return res.status(500).json({ error: "Gagal mengambil data dari MyLiveWallpaper" });
             }
-
+    
             // Parsing HTML dengan Cheerio
             const $ = cheerio.load(response.data);
             const wallpapers = [];
-
+    
             // Ambil container untuk wallpaper
             const container = $('main > div:nth-of-type(3) > div:nth-of-type(1)');
             if (!container.length) {
                 return res.status(404).json({ error: "Tidak ditemukan wallpaper di MyLiveWallpaper" });
             }
-
+    
             // Ekstrak item wallpaper
             container.find('a[href]').each((_, element) => {
                 const link = $(element).attr('href');
                 const title = link.split('/')[link.split('/').length - 2];  // Ambil title dari URL
                 const thumbnailStyle = $(element).attr('style');
-                const thumbnail = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/)[1] : null;
-
+                let thumbnail = thumbnailStyle ? thumbnailStyle.match(/url\((.*?)\)/)[1] : null;
+    
+                // Trim spasi di thumbnail URL jika ada
+                if (thumbnail) {
+                    thumbnail = thumbnail.trim();
+                }
+    
                 if (title && link && thumbnail) {
                     wallpapers.push({
                         title,
@@ -247,7 +314,7 @@ app.get('/latest', async (req, res) => {
                     });
                 }
             });
-
+    
             return res.json({
                 source: 'mylivewallpaper',
                 page,
@@ -260,6 +327,7 @@ app.get('/latest', async (req, res) => {
     } else {
         res.status(400).json({ error: 'Parameter sumber tidak valid' });
     }
+    
 });
 
 
