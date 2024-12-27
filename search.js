@@ -162,67 +162,105 @@ app.get('/latest', async (req, res) => {
 
 
 
+// Fungsi untuk mengambil detail dari MotionBG
+async function getMotionBGDetails(url) {
+    const headers = {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G975F Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
+    };
+
+    const response = await axios.get(url, { headers });
+    if (response.status !== 200) {
+        throw new Error("Gagal mengambil data dari MotionBG");
+    }
+
+    const $ = cheerio.load(response.data);
+
+    // Extract title
+    const title = $('h1 span').text().trim();
+    // Extract video wallpaper link
+    const videoWallpaperElement = $('a[rel="nofollow"][target="_blank"]');
+    const videoWallpaper = videoWallpaperElement.length ? `https://motionbgs.com${videoWallpaperElement.attr('href')}` : null;
+    // Extract preview video link
+    const previewElement = $('video source');
+    const previewVideo = previewElement.length ? `https://motionbgs.com${previewElement.attr('src')}` : null;
+
+    if (!title || !videoWallpaper || !previewVideo) {
+        throw new Error("Gagal mengambil detail yang diperlukan dari MotionBG");
+    }
+
+    return {
+        title,
+        video_wallpaper: videoWallpaper,
+        preview_video: previewVideo
+    };
+}
+
+// Fungsi untuk mengambil detail dari MyLiveWallpaper
+async function getMyLiveWallpaperDetails(url) {
+    const headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+    };
+
+    const response = await axios.get(url, { headers });
+    if (response.status !== 200) {
+        throw new Error("Gagal mengambil data dari MyLiveWallpaper");
+    }
+
+    const $ = cheerio.load(response.data);
+
+    // Extract title
+    const title = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1').text().trim();
+    // Extract video wallpaper link from mobile section
+    const mobileSection = $('img[src="https://mylivewallpapers.com/wp-content/uploads/site-essentials/ico-mobile-blue.png"]');
+    let videoWallpaper = null;
+    if (mobileSection.length) {
+        const videoElement = mobileSection.next('a.wpdm-download-link');
+        videoWallpaper = videoElement.length ? videoElement.attr('data-downloadurl') : null;
+    }
+    // Extract preview video link (video tag for preview)
+    const previewElement = $('video source');
+    const previewVideo = previewElement.length ? previewElement.attr('src') : null;
+
+    if (!title || !videoWallpaper || !previewVideo) {
+        throw new Error("Gagal mengambil detail yang diperlukan dari MyLiveWallpaper");
+    }
+
+    return {
+        title,
+        video_wallpaper: videoWallpaper,
+        preview_video: previewVideo
+    };
+}
+
+// Endpoint /detail untuk menangani dua sumber
 app.get('/detail', async (req, res) => {
     const url = req.query.url;
-    const source = req.query.source; // 'motionbg' atau 'mylivewallpaper'
+    const source = req.query.source;
 
     if (!url || !source) {
         return res.status(400).json({ error: "URL dan source parameter diperlukan" });
     }
 
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
-    };
-
     try {
-        const response = await axios.get(url, { headers });
+        let data;
 
-        if (response.status !== 200) {
-            return res.status(500).json({ error: "Gagal mengambil data dari website" });
-        }
-
-        const $ = cheerio.load(response.data);
-        let title, videoWallpaper, previewVideo;
-
+        // Pilih fungsi berdasarkan sumber
         if (source === 'motionbg') {
-            // Untuk motionbg
-            title = $('h1 span').text().trim();
-            const videoWallpaperElement = $('a[rel="nofollow"][target="_blank"]');
-            videoWallpaper = videoWallpaperElement.length ? `https://motionbgs.com${videoWallpaperElement.attr('href')}` : null;
-            const previewElement = $('video source');
-            previewVideo = previewElement.length ? `https://motionbgs.com${previewElement.attr('src')}` : null;
+            data = await getMotionBGDetails(url);
         } else if (source === 'mylivewallpaper') {
-            // Untuk mylivewallpaper
-            title = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1').text().trim();
-            const mobileSection = $('img[src="https://mylivewallpapers.com/wp-content/uploads/site-essentials/ico-mobile-blue.png"]');
-            if (mobileSection.length) {
-                const videoElement = mobileSection.next('a.wpdm-download-link');
-                videoWallpaper = videoElement.length ? videoElement.attr('data-downloadurl') : null;
-            } else {
-                videoWallpaper = null;
-            }
-            const previewElement = $('video source');
-            previewVideo = previewElement.length ? previewElement.attr('src') : null;
+            data = await getMyLiveWallpaperDetails(url);
         } else {
             return res.status(400).json({ error: "Sumber tidak valid, pilih antara 'motionbg' atau 'mylivewallpaper'" });
         }
 
-        // Pastikan semua data penting telah berhasil diambil
-        if (!title || !videoWallpaper || !previewVideo) {
-            return res.status(500).json({ error: "Gagal mengambil detail yang diperlukan" });
-        }
-
-        return res.json({
-            title,
-            video_wallpaper: videoWallpaper,
-            preview_video: previewVideo
-        });
+        return res.json(data);
 
     } catch (error) {
         console.error('Error:', error.message);
-        return res.status(500).json({ error: "Terjadi kesalahan saat mengambil data" });
+        return res.status(500).json({ error: error.message });
     }
 });
+
 
 
 
