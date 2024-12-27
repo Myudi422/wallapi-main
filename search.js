@@ -57,36 +57,55 @@ app.get('/latest', async (req, res) => {
     const source = req.query.source;  // 'motionbg' or 'mylivewallpaper'
     const page = req.query.page || '1';  // Default to page 1 if no page is specified
     const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     };
 
     if (source === 'motionbg') {
-        // URL for MotionBG
-        const base_url = "https://motionbgs.com/latest/page/";
-        const url = `${base_url}${page}`;
+        // Updated URL for MotionBG
+        const base_url = "https://motionbgs.com/mobile/";
+        const url = `${base_url}${page}/`;
 
         try {
             const response = await axios.get(url, { headers });
+
+            if (response.status !== 200) {
+                return res.status(500).json({ error: "Failed to fetch data from MotionBG" });
+            }
+
+            // Parse HTML with Cheerio
             const $ = cheerio.load(response.data);
             const wallpapers = [];
 
-            $('div.wp-block-post-template a').each((index, element) => {
-                const thumbnail = $(element).find('img').attr('src');
-                const title = $(element).find('h2').text().trim();
-                const link = $(element).attr('href');
+            // Get the container for the wallpapers
+            const container = $('div.tmb.mtmb');
+            if (!container.length) {
+                return res.status(404).json({ error: "No wallpapers found on MotionBG" });
+            }
+
+            // Extract individual wallpaper items
+            container.find('a[href]').each((_, element) => {
+                const title = $(element).attr('title');
+                const link = `https://motionbgs.com${$(element).attr('href')}`;
+                const thumbnailTag = $(element).find('img');
+                const thumbnail = thumbnailTag.length ? `https://motionbgs.com${thumbnailTag.attr('src')}` : null;
 
                 if (title && link && thumbnail) {
-                    wallpapers.push({ title, link, thumbnail });
+                    wallpapers.push({
+                        title,
+                        link,
+                        thumbnail
+                    });
                 }
             });
 
-            res.json({
+            return res.json({
                 source: 'motionbg',
                 page,
                 wallpapers
             });
         } catch (error) {
-            res.status(500).json({ error: 'Failed to fetch data from MotionBG' });
+            console.error('Error:', error.message);
+            return res.status(500).json({ error: "There was an error fetching data from MotionBG." });
         }
 
     } else if (source === 'mylivewallpaper') {
