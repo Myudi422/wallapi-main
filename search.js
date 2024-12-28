@@ -379,15 +379,16 @@ async function getMyLiveWallpaperDetails(url) {
     const $ = cheerio.load(response.data);
 
     // Extract title
-    const title = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1').text().trim();
-    
+    const titleElement = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1');
+    const title = titleElement.text().trim();
+
     // Extract video wallpaper link
     const downloadButton = $('a.wpdm-download-link[data-downloadurl]');
-    const videoWallpaper = downloadButton.length ? downloadButton.attr('data-downloadurl') : null;
+    const videoWallpaper = downloadButton.attr('data-downloadurl') || null;
 
     // Extract preview video link
     const previewElement = $('video source');
-    const previewVideo = previewElement.length ? previewElement.attr('src') : null;
+    const previewVideo = previewElement.attr('src') || null;
 
     if (!title || !videoWallpaper || !previewVideo) {
         throw new Error("Gagal mengambil detail yang diperlukan dari MyLiveWallpaper");
