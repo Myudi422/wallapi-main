@@ -365,7 +365,6 @@ async function getMotionBGDetails(url) {
     };
 }
 
-// Fungsi untuk mengambil detail dari MyLiveWallpaper
 async function getMyLiveWallpaperDetails(url) {
     const headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
@@ -379,16 +378,22 @@ async function getMyLiveWallpaperDetails(url) {
     const $ = cheerio.load(response.data);
 
     // Extract title
-    const titleElement = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1');
-    const title = titleElement.text().trim();
+    const title = $('main > div:nth-of-type(3) > div:nth-of-type(2) > div > div:nth-of-type(2) > h1').text().trim();
 
-    // Extract video wallpaper link
-    const downloadButton = $('a.wpdm-download-link[data-downloadurl]');
-    const videoWallpaper = downloadButton.attr('data-downloadurl') || null;
+    // Extract video wallpaper link (prioritize 'mobile')
+    const downloadLinks = $('a.wpdm-download-link[data-downloadurl]');
+    let videoWallpaper = null;
+
+    downloadLinks.each((_, element) => {
+        const url = $(element).attr('data-downloadurl');
+        if (url.includes('mobile')) {
+            videoWallpaper = url;
+        }
+    });
 
     // Extract preview video link
     const previewElement = $('video source');
-    const previewVideo = previewElement.attr('src') || null;
+    const previewVideo = previewElement.length ? previewElement.attr('src') : null;
 
     if (!title || !videoWallpaper || !previewVideo) {
         throw new Error("Gagal mengambil detail yang diperlukan dari MyLiveWallpaper");
@@ -400,6 +405,7 @@ async function getMyLiveWallpaperDetails(url) {
         preview_video: previewVideo
     };
 }
+
 
 // Endpoint /detail untuk menangani dua sumber tanpa parameter source
 app.get('/detail', async (req, res) => {
