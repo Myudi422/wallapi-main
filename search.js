@@ -4,6 +4,10 @@ const cheerio = require('cheerio');
 const { AnimeWallpaper, AnimeSource } = require("./dist"); // Sesuaikan path ini sesuai dengan lokasi anime-wallpaper.js atau library yang digunakan
 const app = express();
 const port = 3000;
+const cors = require('cors'); // Import middleware cors
+
+
+app.use(cors());
 
 // Inisialisasi AnimeWallpaper untuk menggunakan sumber WallHaven
 const wall = new AnimeWallpaper();
@@ -106,7 +110,64 @@ app.get('/kategori', async (req, res) => {
     }
 });
 
+// Endpoint untuk pencarian
+app.get('/search', async (req, res) => {
+    const baseUrl = "https://mylivewallpapers.com/";
+    const query = req.query.query; // Ambil parameter query dari request
+    const page = req.query.page || '1'; // Default ke halaman 1 jika tidak ada parameter page
 
+    if (!query) {
+        return res.status(400).json({ error: "Parameter query diperlukan" });
+    }
+
+    // Buat URL pencarian
+    const searchUrl = `${baseUrl}page/${page}/?s=${encodeURIComponent(query)}&search_category=all_except_specific`;
+
+    try {
+        const { data } = await axios.get(searchUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+            }
+        });
+
+        const $ = cheerio.load(data);
+        const wallpapers = [];
+
+        // Cari container utama yang berisi wallpaper
+        const container = $('body > main > div:nth-of-type(3) > div:nth-of-type(1)');
+        if (!container.length) {
+            return res.status(404).json({ error: "Tidak ada wallpaper ditemukan di halaman ini" });
+        }
+
+        // Ekstrak data setiap item wallpaper
+        container.find('a[href]').each((_, element) => {
+            const link = $(element).attr('href');
+            const title = $(element).find('h2.archive-post-title').text().trim();
+            const thumbnailStyle = $(element).attr('style') || '';
+            const thumbnailStart = thumbnailStyle.indexOf('url(') + 4;
+            const thumbnailEnd = thumbnailStyle.indexOf(')', thumbnailStart);
+            const thumbnail = thumbnailStyle.substring(thumbnailStart, thumbnailEnd).trim();
+
+            if (title && link && thumbnail) {
+                wallpapers.push({
+                    title,
+                    link,
+                    thumbnail
+                });
+            }
+        });
+
+        // Kirim respons JSON
+        res.json({
+            page,
+            query,
+            wallpapers
+        });
+    } catch (error) {
+        console.error('Error:', error.message);
+        res.status(500).json({ error: "Gagal mengambil data dari situs web" });
+    }
+});
 
 app.get('/random', async (req, res) => {
     const sources = ['motionbg', 'mylivewallpaper'];
