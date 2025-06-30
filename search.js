@@ -6,11 +6,23 @@ const app = express();
 const port = 3000;
 const cors = require('cors'); // Import middleware cors
 
+// Tambahkan konstanta user agent global
+const DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36";
+
+// Tambahkan konstanta headers global
+const DEFAULT_HEADERS = {
+    "User-Agent": DEFAULT_USER_AGENT,
+    "Referer": "https://google.com/",
+    "Accept-Language": "en-US,en;q=0.9"
+};
 
 app.use(cors());
 
 // Inisialisasi AnimeWallpaper untuk menggunakan sumber WallHaven
 const wall = new AnimeWallpaper();
+
+// Tambahkan konstanta API KEY untuk Wallhaven
+const WALLHAVEN_API_KEY = "9rUErDNLottV6RZNxS3B6cLQNO9vzVgC";
 
 /**
  * API Endpoint untuk mendapatkan gambar dari WallHaven berdasarkan judul
@@ -21,23 +33,31 @@ app.get('/wallhaven', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const numImages = parseInt(req.query.numImages) || 24;
     const type = req.query.type || 'both';
-    const aiArt = req.query.aiArt === 'true' || false;
+    const aiArt = req.query.aiArt === 'true' ? 1 : 0;
 
     if (!title) {
         return res.status(400).json({ error: "Parameter 'title' harus disertakan." });
     }
 
     try {
-        // Pencarian gambar dari WallHaven dengan judul tertentu
-        const wallpapers = await wall.search({ title, page, type, aiArt }, AnimeSource.WallHaven);
+        // Gunakan Wallhaven API resmi
+        const params = {
+            q: title,
+            page: page,
+            purity: type === "sfw" ? "100" : type === "sketchy" ? "010" : "110",
+            ai_art_filter: aiArt,
+            apikey: WALLHAVEN_API_KEY
+        };
+        const response = await axios.get("https://wallhaven.cc/api/v1/search", { params, headers: DEFAULT_HEADERS });
+        const wallpapers = response.data.data || [];
 
         // Tentukan apakah masih ada halaman berikutnya
         const hasNextPage = wallpapers.length > numImages;
 
         // Format hasil pencarian menjadi JSON
         const result = wallpapers.slice(0, numImages).map(img => ({
-            thumbnail: img.thumbnail || null,
-            full: img.image || null,
+            thumbnail: img.thumbs?.small || null,
+            full: img.path || null,
         }));
 
         if (result.length === 0) {
@@ -62,9 +82,8 @@ app.get('/kategori', async (req, res) => {
     const page = req.query.page || "1"; // Default to page 1 if no page is specified
     const url = `${base_url}${category}/page/${page}/`;
 
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
-    };
+    // Gunakan DEFAULT_USER_AGENT
+    const headers = DEFAULT_HEADERS;
 
     try {
         const response = await axios.get(url, { headers });
@@ -125,9 +144,7 @@ app.get('/search', async (req, res) => {
 
     try {
         const { data } = await axios.get(searchUrl, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
-            }
+            headers: DEFAULT_HEADERS
         });
 
         const $ = cheerio.load(data);
@@ -173,9 +190,7 @@ app.get('/random', async (req, res) => {
     const sources = ['motionbg', 'mylivewallpaper'];
     const randomSource = sources[Math.floor(Math.random() * sources.length)]; // Pilih sumber secara acak
     const randomPage = Math.floor(Math.random() * 10) + 1; // Pilih halaman acak (1-10)
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-    };
+    const headers = DEFAULT_HEADERS;
 
     if (randomSource === 'motionbg') {
         const baseUrl = "https://motionbgs.com/mobile/";
@@ -280,9 +295,7 @@ app.get('/random', async (req, res) => {
 app.get('/latest', async (req, res) => {
     const source = req.query.source;  // 'motionbg' atau 'mylivewallpaper'
     const page = req.query.page || '1';  // Default halaman 1 jika tidak ada parameter
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
-    };
+    const headers = DEFAULT_HEADERS;
 
     if (source === 'motionbg') {
         const baseUrl = "https://motionbgs.com/mobile/";
@@ -392,12 +405,8 @@ app.get('/latest', async (req, res) => {
 });
 
 
-
-
 async function getMotionBGDetails(url) {
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G975F Build/QP1A.190711.020) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Mobile Safari/537.36"
-    };
+    const headers = DEFAULT_HEADERS;
 
     const response = await axios.get(url, { headers });
     if (response.status !== 200) {
@@ -427,9 +436,7 @@ async function getMotionBGDetails(url) {
 }
 
 async function getMyLiveWallpaperDetails(url) {
-    const headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
-    };
+    const headers = DEFAULT_HEADERS;
 
     const response = await axios.get(url, { headers });
     if (response.status !== 200) {
@@ -499,8 +506,6 @@ app.get('/detail', async (req, res) => {
 
 
 
-
-
 /**
  * API Endpoint untuk mendapatkan gambar secara acak dari WallHaven
  * Contoh: http://localhost:3000/homepage
@@ -508,24 +513,27 @@ app.get('/detail', async (req, res) => {
 app.get('/homepage', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const numImages = parseInt(req.query.numImages) || 24;
-    const aiArt = req.query.aiArt === 'true' || false;
+    const aiArt = req.query.aiArt === 'true' ? 1 : 0;
 
     try {
-        // Mengambil gambar dari WallHaven secara acak
-        const wallpapers = await wall.scrapeFromWallHaven({
-            title: "", // Kosongkan untuk mendapatkan gambar acak
+        // Mengambil gambar dari WallHaven secara acak menggunakan API
+        const params = {
+            q: "",
             page: page,
-            type: "both", // Bisa diganti dengan 'anime' atau 'general'
-            aiArt: aiArt
-        });
+            purity: "110",
+            ai_art_filter: aiArt,
+            apikey: WALLHAVEN_API_KEY
+        };
+        const response = await axios.get("https://wallhaven.cc/api/v1/search", { params, headers: DEFAULT_HEADERS });
+        const wallpapers = response.data.data || [];
 
         // Tentukan apakah masih ada halaman berikutnya
         const hasNextPage = wallpapers.length > numImages;
 
         // Format hasil pencarian menjadi JSON
         const result = wallpapers.slice(0, numImages).map(img => ({
-            thumbnail: img.thumbnail || null,
-            full: img.image || null,
+            thumbnail: img.thumbs?.small || null,
+            full: img.path || null,
         }));
 
         if (result.length === 0) {

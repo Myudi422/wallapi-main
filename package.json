@@ -31,11 +31,11 @@
     "anime-wallpaper": "^3.2.2",
     "axios": "^1.7.9",
     "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
     "express": "^4.21.1",
     "node-superfetch": "^0.1.11",
     "random-useragent": "^0.5.0"
   },
-
   "repository": "https://github.com/iseizuu/anime-wallpaper.git",
   "author": "Aizuu",
   "bugs": {
